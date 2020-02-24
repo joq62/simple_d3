@@ -16,6 +16,7 @@
 -compile(export_all).
 
 
+-define(MASTER_IP,{"localhost",40000}).
 
 %% ====================================================================
 %% External functions
@@ -26,12 +27,17 @@
 %% Description: requires pod+container module
 %% Returns: non
 %% --------------------------------------------------------------------
-start_master_service()->
+start_master_dns_service()->
     master_service_tests:start_service(lib_service),
     master_service_tests:check_started_service(lib_service),
     ok=application:start(master_service),
     ?assertEqual({pong,master_service_test@asus,master_service},master_service:ping()),
-
+  %  [VmName,_Host]=string:split(atom_to_list(node()),"@"), 
+   % glurk=node(),
+    ?assertEqual(ok,container:create(node(),".",[{{service,"dns_service"},
+						     {dir,"/home/pi/erlang/simple_d/source"}}
+						   ])),
+    ?assertEqual({pong,master_service_test@asus,dns_service},dns_service:ping()),
     ok.
 
 % Data structures 

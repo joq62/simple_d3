@@ -27,15 +27,12 @@
 
 
 
--export([start_tcp_server/2,start_tcp_server/3,
-	  stop_tcp_server/1,stop_tcp_server/2,
-	 ping/0,
-	 dns_address/0,
-	 myip/0
+-export([update_node_info/4,read_node_info/1
 	]).
 
 -export([start/0,
 	 stop/0,
+	 ping/0,
 	 heart_beat/1
 	]).
 
@@ -57,26 +54,17 @@ start()-> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 
+ping()-> 
+    gen_server:call(?MODULE, {ping},infinity).
 
 %%-----------------------------------------------------------------------
 
-dns_address()->
-    gen_server:call(?MODULE, {dns_address},infinity).
+update_node_info(IpAddr,Port,Mode,Status)->
+    gen_server:call(?MODULE, {update_node_info,IpAddr,Port,Mode,Status},infinity).
 
-ping()->
-    gen_server:call(?MODULE, {ping},infinity).
-myip()->
-    gen_server:call(?MODULE, {myip},infinity).
+read_node_info(NodeId)->
+    gen_server:call(?MODULE, {read_node_info,NodeId},infinity).
 
-start_tcp_server({IpAddr,Port},Mode)->
-    gen_server:call(?MODULE, {start_tcp_server,IpAddr,Port,Mode},infinity).
-start_tcp_server(IpAddr,Port,Mode)->
-    gen_server:call(?MODULE, {start_tcp_server,IpAddr,Port,Mode},infinity).
-
-stop_tcp_server({IpAddr,Port})->
-    gen_server:call(?MODULE, {stop_tcp_server,IpAddr,Port},infinity).
-stop_tcp_server(IpAddr,Port)->
-    gen_server:call(?MODULE, {stop_tcp_server,IpAddr,Port},infinity).
 %%-----------------------------------------------------------------------
 
 heart_beat(Interval)->
@@ -97,6 +85,8 @@ heart_beat(Interval)->
 %
 %% --------------------------------------------------------------------
 init([]) ->
+    etcd:create_app_dets(),
+    etcd:create_node_dets(),
   %  MyPid=self(),
    % spawn(fun()->do_dns_address(MyPid) end),
  %   spawn(fun()->h_beat(?HB_INTERVAL) end),
@@ -113,76 +103,17 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (aterminate/2 is called)
 %% --------------------------------------------------------------------
-handle_call({dns_address}, _From, State) ->
-  %  Reply=case tcp_client:call(?DNS_ADDRESS,{dns_service,ping,[]}) of
-%	      {pong,_,_}->
-%		  ?DNS_ADDRESS;
-%	      Err->
-%		  {error,[eexists,dns_service,?DNS_ADDRESS,Err,?MODULE,?LINE]}
-%	  end,
-    Reply=?DNS_ADDRESS,
+handle_call({update_node_info,IpAddr,Port,Mode,Status}, _From, State) ->
+    Reply=rpc:call(node(),lib_master,update_node_info,[IpAddr,Port,Mode,Status]),
     {reply, Reply,State};
 
 
-handle_call({ping}, _From, State) ->
+handle_call({read_node_info,NodeId}, _From, State) ->
+    Reply=rpc:call(node(),lib_master,read_node_info,[NodeId]),
+    {reply, Reply,State};
+
+handle_call({ping},_From,State) ->
     Reply={pong,node(),?MODULE},
-    {reply, Reply,State};
-
-handle_call({start_tcp_server,NewIpAddr,NewPort,NewMode}, _From, State) ->
-    TcpServers=State#state.tcp_servers,
-    Reply=case TcpServers of
-	      []-> % Only one Server
-		  case NewMode of
-		      sequence->
-			  case tcp_server:start_seq_server(NewIpAddr,NewPort) of
-			      {error,Err}->
-				  NewState=State,
-				  {error,Err};
-			      {ok,SeqServer}->
-				  NewState=State#state{tcp_servers=[{NewIpAddr,NewPort,NewMode,SeqServer}|TcpServers]},
-				  ok
-			  end;
-		      parallell->
-			  case tcp_server:start_par_server(NewIpAddr,NewPort) of
-			      {error,Err}->
-				  NewState=State,
-				  {error,Err};
-			      {ok,ParServer}->
-				  NewState=State#state{tcp_servers=[{NewIpAddr,NewPort,NewMode,ParServer}|TcpServers]},
-				  ok
-			  end;
-		      Err->
-			  NewState=State,
-			  {error,Err}
-		  end;
-	      [{_,_,_,_}]->
-		  NewState=State,
-		  {error,[already_started,NewIpAddr,NewPort,?MODULE,?LINE]}
-	  end,
-    {reply, Reply, NewState};
-
-
-handle_call({stop_tcp_server,StopIpAddr,StopPort}, _From, State) ->
-    TcpServers=State#state.tcp_servers,
-    Reply=case TcpServers of
-	      []->
-		  NewState=State,
-		  {error,[not_started,StopIpAddr,StopPort,?MODULE,?LINE]};
-	      [{StopIpAddr,StopPort,Mode,Server}]->
-		  ok=tcp_server:terminate(Server),
-		  NewState=State#state{tcp_servers=lists:delete({StopIpAddr,StopPort,Mode,Server},TcpServers)},
-		  {ok,stopped}
-	  end,
-    {reply, Reply, NewState};
-
-handle_call({myip}, _From, State) ->
-    TcpServers=State#state.tcp_servers,
-    Reply=case TcpServers of
-	      []->
-		  {error,[myip,not_started,?MODULE,?LINE]};
-	      [{IpAddr,Port,_Mode,_Server}]->
-		  {IpAddr,Port}
-	  end,
     {reply, Reply, State};
 
 handle_call({stop}, _From, State) ->
@@ -215,12 +146,7 @@ handle_cast(Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_info({_MyPid,{dns_address,DnsAddress}}, State) ->
-    NewState=State#state{dns_address=DnsAddress},
-    timer:sleep(1*20*1000),
-   % MyPid=self(),
-   % spawn(fun()->do_dns_address(MyPid) end),
-    {noreply, NewState};
+
 handle_info(Info, State) ->
     io:format("unmatched match info ~p~n",[{?MODULE,?LINE,Info}]),
     {noreply, State}.

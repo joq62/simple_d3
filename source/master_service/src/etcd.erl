@@ -50,6 +50,11 @@ init()->
     
     ok.
     
+
+
+read_app_info(all)->
+    {ok,[{app_info,Info}]}=etcd:read(?APP_INFO_FILE,app_info),
+    Info.
 %% --------------------------------------------------------------------
 %% Function: 
 %% Description:
@@ -70,21 +75,28 @@ delete_app_dets()->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-
 update_app_info(ServiceId,Num,Nodes,Source,Status)->
-    {ok,[{app_info,AppInfo}]}=etcd:read(?APP_INFO_FILE,app_info),
-   
-    % 1) Update the record 
-  %  CurrentInfo=proplists:get_value(VmName,Info),
-    NewInfo=set_app_info(ServiceId,Num,Nodes,Source,Status),
-    
-    % 2) Update the list 
-    NewAppList=lists:keyreplace(ServiceId,1,AppInfo,NewInfo),
- 
-    % 3) update dets table
-    ok=etcd:update(?APP_INFO_FILE,app_info,NewAppList),
+    {NewServiceId,NewAppInfo}=set_app_info(ServiceId,Num,Nodes,Source,Status),
+    UpdatedList=case etcd:read(?APP_INFO_FILE,app_info) of
+		    {ok,[]}->
+		       %NoEntries 
+			[{"pod_landet_1",
+			  {node_info,
+			   "pod_landet_1",pod_landet_1@asus,"localhost",50100,
+			   parallell,no_status_info}
+			 }
+			],[{NewServiceId,NewServiceId}],
+			[{NewServiceId,NewAppInfo}];
+		    {ok,[{app_info,AppInfoList}]}->
+			case lists:keymember(NewServiceId,1,AppInfoList) of
+			    false->
+				[{NewServiceId,NewAppInfo}|AppInfoList];
+			    true->
+				lists:keyreplace(NewServiceId,1,AppInfoList,{NewServiceId,NewAppInfo})
+			end
+		end,
+    ok=etcd:update(?APP_INFO_FILE,app_info,UpdatedList),
     ok.
-
 
 %% --------------------------------------------------------------------
 %% Function: 
@@ -133,17 +145,32 @@ delete_node_dets()->
     ok.
 
 
-update_node_info(VmName,IpAddr,Port,Mode,Status)->
-    {ok,[{node_info,NodeInfo}]}=etcd:read(?NODE_INFO_FILE,node_info),
-   
-    % 1) Update the record 
-    NewInfo=set_node_info(IpAddr,Port,Mode,Status),
-   
-    % 2) Update the list 
-    NewUpdatedNodeList=lists:keyreplace(VmName,1,NodeInfo,NewInfo),
- 
-    % 3) update dets table
-    ok=etcd:update(?NODE_INFO_FILE,node_info,NewUpdatedNodeList),
+read_node_info(all)->
+    {ok,[{node_info,Info}]}=etcd:read(?NODE_INFO_FILE,node_info),
+    Info.
+
+update_node_info(IpAddr,Port,Mode,Status)->
+  %  {ok,[{node_info,NodeInfo}]}=etcd:read(?NODE_INFO_FILE,node_info)
+    {NewVmName,NewNodeInfo}=set_node_info(IpAddr,Port,Mode,Status),
+    UpdatedList=case etcd:read(?NODE_INFO_FILE,node_info) of
+		    {ok,[]}->
+		       %NoEntries 
+			[{"pod_landet_1",
+			  {node_info,
+			   "pod_landet_1",pod_landet_1@asus,"localhost",50100,
+			   parallell,no_status_info}
+			 }
+			],[{NewVmName,NewNodeInfo}],
+			[{NewVmName,NewNodeInfo}];
+		    {ok,[{node_info,NodeInfoList}]}->
+			case lists:keymember(NewVmName,1,NodeInfoList) of
+			    false->
+				[{NewVmName,NewNodeInfo}|NodeInfoList];
+			    true->
+				lists:keyreplace(NewVmName,1,NodeInfoList,{NewVmName,NewNodeInfo})
+			end
+		end,
+    ok=etcd:update(?NODE_INFO_FILE,node_info,UpdatedList),
     ok.
 
 

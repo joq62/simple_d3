@@ -70,15 +70,21 @@ read_info_test()->
 app_info_test()->
     {ok,Files}=file:list_dir("appfiles"),
     AppInfo=[file:consult(filename:join("appfiles",File))||File<-Files,filename:extension(File)=:=".spec"],
-    AppInfoList=[etcd:set_app_info(ServiceId,Num,Nodes,Source,not_loaded)||{ok,[{service,ServiceId},
-									     {num_instances,Num},
-									     {nodes,Nodes},
-									     {source,Source}
-									    ]
-									}<-AppInfo],
-   %  ?assertEqual(ok,AppInfoList),
-    ?assertEqual(ok,etcd:update("app_info.dets",app_info,AppInfoList)),
-    
+
+ %   AppInfoList=[etcd:set_app_info(ServiceId,Num,Nodes,Source,not_loaded)||{ok,[{service,ServiceId},
+%									     {num_instances,Num},
+%									     {nodes,Nodes},
+%									     {source,Source}
+%									    ]
+%									}<-AppInfo],
+ %    ?assertEqual(glurk,AppInfoList),
+    [etcd:update_app_info(ServiceId,Num,Nodes,Source,not_loaded)||{ok,
+							       [{service,ServiceId},
+								{num_instances,Num},
+								{nodes,Nodes},
+								{source,Source}
+							       ]
+							      }<-AppInfo],
     {ok,[{app_info,Info}]}=etcd:read("app_info.dets",app_info),
     I=proplists:get_value("adder_service",Info),
     ?assertEqual({app_info,
@@ -112,9 +118,8 @@ node_info_test()->
     {ok,I}=file:consult("node.config"),
     ComputerList=proplists:get_value(computer_list,I),
     UpdatedComputerList=[etcd:set_node_info(IpAddr,Port,Mode,no_status_info)||{_VmName,IpAddr,Port,Mode}<-ComputerList],
-  %  ?assertEqual(glurk,UpdatedComputerList),
-%    io:format("~p~n",[UpdatedComputerList]),
-    ?assertEqual(ok,etcd:update("node_info.dets",node_info,UpdatedComputerList)),
+  
+    [etcd:update_node_info(IpAddr,Port,Mode,no_status_info)||{_VmName,IpAddr,Port,Mode}<-ComputerList],
     
     {ok,[{node_info,Info}]}=etcd:read("node_info.dets",node_info),
     ?assertEqual({node_info,
@@ -122,45 +127,35 @@ node_info_test()->
 		  pod_landet_1@asus,
 		  "localhost",50100,
 		  parallell,no_status_info},proplists:get_value("pod_landet_1",Info)),
+
     X=proplists:get_value("pod_landet_1",Info),
     ?assertEqual(no_status_info,X#node_info.status),   
-    % Update status info for "pod_landet_1"
-    % 1) Update the record 
-    % 2) Update the list 
-    % 3) update dets table
-    
-    % 1)
     CurrentInfo=proplists:get_value("pod_landet_1",Info),
-    NewInfo=etcd:set_node_info(CurrentInfo#node_info.ip_addr,CurrentInfo#node_info.port,
-			       CurrentInfo#node_info.mode,running),
-   
-    % 2)
-    NewUpdatedComputerList=lists:keyreplace("pod_landet_1",1,UpdatedComputerList,NewInfo),
-  %  ?assertEqual(glurk,NewUpdatedComputerList),
-   % ?assertEqual(glurk,NewInfo),
+    etcd:update_node_info(CurrentInfo#node_info.ip_addr,CurrentInfo#node_info.port,
+			  CurrentInfo#node_info.mode,running), 
+ 
     % Before 
-   ?assertEqual([{"pod_landet_1",no_status_info},
-		  {"pod_lgh_1",no_status_info},
-		  {"pod_lgh_2",no_status_info}],[{VnName,InfoList#node_info.status}||{VnName,InfoList}<-Info]),
-    % After updating "pod_landet_1"
-   ?assertEqual([{"pod_landet_1",running},
-		  {"pod_lgh_1",no_status_info},
-		  {"pod_lgh_2",no_status_info}],[{VnName,InfoList#node_info.status}||{VnName,InfoList}<-NewUpdatedComputerList]),
-    % 3)
-    ?assertEqual(ok,etcd:update("node_info.dets",node_info,NewUpdatedComputerList)),
+   ?assertEqual([{"pod_lgh_2",no_status_info},
+		 {"pod_lgh_1",no_status_info},
+		 {"pod_landet_1",no_status_info}],[{VnName,InfoList#node_info.status}||{VnName,InfoList}<-Info]),
+
+    CurrentInfo=proplists:get_value("pod_landet_1",Info),
+    etcd:update_node_info(CurrentInfo#node_info.ip_addr,CurrentInfo#node_info.port,
+			  CurrentInfo#node_info.mode,running), 
+  
     {ok,[{node_info,Info2}]}=etcd:read("node_info.dets",node_info),
-    ?assertEqual([{"pod_landet_1",running},
-		  {"pod_lgh_1",no_status_info},
-		  {"pod_lgh_2",no_status_info}],[{VnName,InfoList#node_info.status}||{VnName,InfoList}<-Info2]),
+    ?assertEqual([{"pod_lgh_2",no_status_info},
+		   {"pod_lgh_1",no_status_info},
+		   {"pod_landet_1",running}],[{VnName,InfoList#node_info.status}||{VnName,InfoList}<-Info2]),
    
     CurrentInfo2=proplists:get_value("pod_lgh_1",Info2),
-    ok=etcd:update_node_info("pod_lgh_1",CurrentInfo2#node_info.ip_addr,CurrentInfo2#node_info.port,
+    ok=etcd:update_node_info(CurrentInfo2#node_info.ip_addr,CurrentInfo2#node_info.port,
 			     CurrentInfo2#node_info.mode,running),
     
     {ok,[{node_info,Info3}]}=etcd:read("node_info.dets",node_info),
-    ?assertEqual([{"pod_landet_1",running},
+    ?assertEqual([{"pod_lgh_2",no_status_info},
 		  {"pod_lgh_1",running},
-		  {"pod_lgh_2",no_status_info}],[{VmName,InfoList#node_info.status}||{VmName,InfoList}<-Info3]),
+		  {"pod_landet_1",running}],[{VmName,InfoList#node_info.status}||{VmName,InfoList}<-Info3]),
     
     ok.
 
