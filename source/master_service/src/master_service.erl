@@ -27,7 +27,10 @@
 
 
 
--export([update_node_info/4,read_node_info/1
+-export([update_node_info/4,read_node_info/1,
+	 node_availability/1,
+	 update_app_info/5,read_app_info/1,
+	 app_availability/1
 	]).
 
 -export([start/0,
@@ -58,6 +61,17 @@ ping()->
     gen_server:call(?MODULE, {ping},infinity).
 
 %%-----------------------------------------------------------------------
+app_availability(ServiceId)->
+    gen_server:call(?MODULE, {app_availability,ServiceId},infinity).
+
+update_app_info(ServiceId,Num,Nodes,Source,Status)->
+    gen_server:call(?MODULE, {update_app_info,ServiceId,Num,Nodes,Source,Status},infinity).
+
+read_app_info(ServiceId)->
+    gen_server:call(?MODULE, {read_app_info,ServiceId},infinity).
+
+node_availability(NodeId)->
+    gen_server:call(?MODULE, {node_availability,NodeId},infinity).
 
 update_node_info(IpAddr,Port,Mode,Status)->
     gen_server:call(?MODULE, {update_node_info,IpAddr,Port,Mode,Status},infinity).
@@ -103,6 +117,23 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (aterminate/2 is called)
 %% --------------------------------------------------------------------
+handle_call({app_availability,ServiceId}, _From, State) ->
+    Reply=rpc:call(node(),lib_master,app_availability,[ServiceId]),
+    {reply, Reply,State};
+
+handle_call({update_app_info,ServiceId,Num,Nodes,Source,Status}, _From, State) ->
+    Reply=rpc:call(node(),lib_master,update_app_info,[ServiceId,Num,Nodes,Source,Status]),
+    {reply, Reply,State};
+
+
+handle_call({read_app_info,ServiceId}, _From, State) ->
+    Reply=rpc:call(node(),lib_master,read_app_info,[ServiceId]),
+    {reply, Reply,State};
+
+handle_call({node_availability,NodeId}, _From, State) ->
+    Reply=rpc:call(node(),lib_master,node_availability,[NodeId]),
+    {reply, Reply,State};
+
 handle_call({update_node_info,IpAddr,Port,Mode,Status}, _From, State) ->
     Reply=rpc:call(node(),lib_master,update_node_info,[IpAddr,Port,Mode,Status]),
     {reply, Reply,State};

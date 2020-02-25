@@ -4,7 +4,7 @@
 %%% 
 %%% Created : 10 dec 2012
 %%% -------------------------------------------------------------------
--module(node_controller_test_cases). 
+-module(app_controller_test_cases). 
    
 %% --------------------------------------------------------------------
 %% Include files
@@ -35,7 +35,7 @@ start()->
  %   ?assertEqual(ok,delete_test()),
     
 
-    cleanup(),
+ %   cleanup(),
     ok.
 
 
@@ -45,25 +45,23 @@ start()->
 %% Returns: non
 %% -------------------------------------------------------------------
 update_test()->
-    {ok,I}=file:consult("node.config"),
-    ComputerList=proplists:get_value(computer_list,I),
-    % start test master
-    [master_service:update_node_info(IpAddr,Port,Mode,no_status_info)||{_VmName,IpAddr,Port,Mode}<-ComputerList],
-    ?assertEqual(["pod_lgh_2",
-		  "pod_lgh_1",
-		  "pod_landet_1"],[VmName||{VmName,_}<-master_service:read_node_info(all)]),
+    {ok,Files}=file:list_dir("appfiles"),
+    AppInfoList=[file:consult(filename:join("appfiles",File))||File<-Files,filename:extension(File)=:=".spec"],
+
+   %  ?assertEqual(glurk,AppInfoList),
+    [master_service:update_app_info(ServiceId,Num,Nodes,Source,not_loaded)||{ok,
+									     [{service,ServiceId},
+									      {num_instances,Num},
+									      {nodes,Nodes},
+									      {source,Source}
+									     ]
+									    }<-AppInfoList],
+    %Check that they are not  available
     
-  
-    ?assertMatch({availible,
-		  [{"pod_lgh_2",_},
-		   {"pod_lgh_1",_},
-		   {"pod_landet_1",_}],
-		  missing,
-		  [{"glurk",_}]},master_service:node_availability(all)),
-  %  {availible,Availible,missing,Missing}=master_service:node_availability(all),
-    
-    
-    
+    ?assertMatch({availible,[],
+		  missing,[{"divi_service",_},
+			   {"adder_service",glurk}],
+		  remove,[]},master_service:app_availability(all)),
 
     ok.
 
@@ -81,7 +79,7 @@ update_test()->
 %% Returns: non
 %% -------------------------------------------------------------------
 cleanup()->
-  
+   
    ok. 
 %% --------------------------------------------------------------------
 %% Function:start/0 
