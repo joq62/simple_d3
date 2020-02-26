@@ -75,17 +75,6 @@ delete_app_dets()->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-add_app_list(ServiceId,IpAddr,Port,Source,Status)->
-    etcd:update(?APP_INFO_FILE,{app_list,ServiceId,IpAddr,Port},[Source,Status]).
-
-delete_app_list(ServiceId,IpAddr,Port,Source,Status)->
-    etcd:delete(app_list,ServiceId,IpAddr,Port).
-
-read_app_list(all)->
-    
-
-
-
 update_app_info(ServiceId,Num,Nodes,Source,Status)->
     {NewServiceId,NewAppInfo}=set_app_info(ServiceId,Num,Nodes,Source,Status),
     UpdatedList=case etcd:read(?APP_INFO_FILE,app_info) of
@@ -263,21 +252,6 @@ exists_file(File)->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-delete(File,Key)->
-    case filelib:is_file(File) of 
-	true->
-	    {ok,Descriptor}=dets:open_file(File),
-	    case dets:lookup(Descriptor, Key) of
-		[]->
-		    Reply = {error,no_entry};
-		X->
-		    Reply=dets:delete(Descriptor, Key)
-	    end,
-	    dets:close(Descriptor);
-	false->
-	    Reply = {error,no_file}
-    end.
-
 
 update(File,Key,Value)->
     case filelib:is_file(File) of 
