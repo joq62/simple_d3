@@ -7,6 +7,13 @@
 	  status
 	 }).
 
+-record(app_list,{
+	  service,
+	  ip_addr,
+	  port,
+	  status
+	 }).
+
 -record(app_info,{
 	  service,
 	  num,

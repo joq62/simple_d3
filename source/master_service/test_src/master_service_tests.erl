@@ -38,12 +38,14 @@ cases_test()->
      clean_start(),
      eunit_start(),
      % Add funtional test cases 
-     master_service_test_cases:start_computer_pods(),
-     etcd_test_cases:start(),
+   %  master_service_test_cases:start_computer_pods(),
+   %  master_service_test_cases:start_master_dns_service(),
+     application:start(master_service),
+     app_test_cases:start(),
      
-     master_service_test_cases:start_master_dns_service(),
-     node_controller_test_cases:start(),
-     app_controller_test_cases:start(),
+     
+  %   node_controller_test_cases:start(),
+   %  app_controller_test_cases:start(),
   %   master_service_test_cases:
   %   master_service_test_cases:
    %  system_test_cases:test_adder_divi(),
@@ -86,8 +88,8 @@ clean_start()->
     [{_,ComputerVmList}]=ets:lookup(?ETS,computer_vm_list),
     [rpc:call(Vm,init,stop,[])||{_,Vm}<-ComputerVmList],
     [pod:delete(node(),VmName)||{VmName,_}<-ComputerVmList],
-    etcd:delete_app_dets(),
-    etcd:delete_node_dets(),
+    lib_app:delete_dets(),
+ %   etcd:delete_node_dets(),
     ok.
 eunit_start()->
     [].
@@ -100,8 +102,8 @@ stop_computer_pods()->
     [{_,ComputerVmList}]=ets:lookup(?ETS,computer_vm_list),
     [pod:delete(node(),VmName)||{VmName,_}<-ComputerVmList],
     os:cmd("rm -r  dns_service"),
-    etcd:delete_app_dets(),
-    etcd:delete_node_dets(),
+    lib_app:delete_dets(),
+%    etcd:delete_node_dets(),
     ok.
 
 eunit_stop()->

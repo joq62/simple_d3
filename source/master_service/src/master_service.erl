@@ -29,7 +29,7 @@
 
 -export([update_node_info/4,read_node_info/1,
 	 node_availability/1,
-	 update_app_info/5,read_app_info/1,
+	 update_app_info/5,read_app_info/1,delete_app_info/1,
 	 app_availability/1
 	]).
 
@@ -70,6 +70,9 @@ update_app_info(ServiceId,Num,Nodes,Source,Status)->
 read_app_info(ServiceId)->
     gen_server:call(?MODULE, {read_app_info,ServiceId},infinity).
 
+delete_app_info(ServiceId)->
+    gen_server:call(?MODULE, {delete_app_info,ServiceId},infinity).
+
 node_availability(NodeId)->
     gen_server:call(?MODULE, {node_availability,NodeId},infinity).
 
@@ -99,8 +102,8 @@ heart_beat(Interval)->
 %
 %% --------------------------------------------------------------------
 init([]) ->
-    etcd:create_app_dets(),
-    etcd:create_node_dets(),
+    lib_app:create_dets(),
+ %   etcd:create_node_dets(),
   %  MyPid=self(),
    % spawn(fun()->do_dns_address(MyPid) end),
  %   spawn(fun()->h_beat(?HB_INTERVAL) end),
@@ -118,16 +121,20 @@ init([]) ->
 %%          {stop, Reason, State}            (aterminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({app_availability,ServiceId}, _From, State) ->
-    Reply=rpc:call(node(),lib_master,app_availability,[ServiceId]),
+    Reply=rpc:call(node(),lib_app,app_availability,[ServiceId]),
     {reply, Reply,State};
 
 handle_call({update_app_info,ServiceId,Num,Nodes,Source,Status}, _From, State) ->
-    Reply=rpc:call(node(),lib_master,update_app_info,[ServiceId,Num,Nodes,Source,Status]),
+    Reply=rpc:call(node(),lib_app,update_app_info,[ServiceId,Num,Nodes,Source,Status]),
+    {reply, Reply,State};
+
+handle_call({read_app_info,ServiceId}, _From, State) ->
+    Reply=rpc:call(node(),lib_app,read_app_info,[ServiceId]),
     {reply, Reply,State};
 
 
-handle_call({read_app_info,ServiceId}, _From, State) ->
-    Reply=rpc:call(node(),lib_master,read_app_info,[ServiceId]),
+handle_call({delete_app_info,ServiceId}, _From, State) ->
+    Reply=rpc:call(node(),lib_app,delete_app_info,[ServiceId]),
     {reply, Reply,State};
 
 handle_call({node_availability,NodeId}, _From, State) ->
